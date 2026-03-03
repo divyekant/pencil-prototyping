@@ -6,6 +6,10 @@ set -euo pipefail
 # Configurable paths (overridable for testing)
 PENCIL_USER_APP="${PENCIL_USER_APP:-$HOME/Applications/Pencil.app}"
 PENCIL_SYS_APP="${PENCIL_SYS_APP:-/Applications/Pencil.app}"
+PENCIL_DOWNLOAD_DIR="${PENCIL_DOWNLOAD_DIR:-$HOME/Downloads}"
+PENCIL_DRY_RUN="${PENCIL_DRY_RUN:-0}"
+PENCIL_UNAME_CMD="${PENCIL_UNAME_CMD:-uname -m}"
+PENCIL_DMG_BASE="https://5ykymftd1soethh5.public.blob.vercel-storage.com"
 
 find_pencil() {
   if [ -d "${PENCIL_USER_APP}" ]; then
@@ -27,6 +31,62 @@ check_installed() {
     echo "Pencil is not installed"
     return 1
   fi
+}
+
+detect_arch() {
+  local arch
+  arch="$(eval "${PENCIL_UNAME_CMD}")"
+  case "${arch}" in
+    arm64) echo "arm64" ;;
+    x86_64) echo "x64" ;;
+    *) echo "unknown"; return 1 ;;
+  esac
+}
+
+install_pencil() {
+  if find_pencil > /dev/null 2>&1; then
+    echo "Pencil is already installed"
+    return 0
+  fi
+
+  local arch dmg_name dmg_url dmg_path
+
+  arch="$(detect_arch)" || { echo "Unsupported architecture"; return 1; }
+  dmg_name="Pencil-mac-${arch}.dmg"
+  dmg_url="${PENCIL_DMG_BASE}/${dmg_name}"
+  dmg_path="${PENCIL_DOWNLOAD_DIR}/${dmg_name}"
+
+  echo "Detected architecture: ${arch}"
+  echo "Downloading ${dmg_name}..."
+
+  if [ "${PENCIL_DRY_RUN}" = "1" ]; then
+    echo "DRY RUN: would download ${dmg_url} to ${dmg_path}"
+    return 0
+  fi
+
+  curl -fSL -o "${dmg_path}" "${dmg_url}" || {
+    echo "Download failed. Install manually from https://www.pencil.dev/downloads"
+    return 1
+  }
+
+  echo "Mounting DMG..."
+  local mount_point
+  mount_point="$(hdiutil attach "${dmg_path}" -nobrowse 2>/dev/null | grep '/Volumes/' | awk '{print $NF}')"
+
+  if [ -z "${mount_point}" ]; then
+    mount_point="$(hdiutil attach "${dmg_path}" -nobrowse 2>/dev/null | tail -1 | sed 's/.*\(\/Volumes\/.*\)/\1/')"
+  fi
+
+  echo "Copying Pencil.app to ~/Applications..."
+  mkdir -p "$(dirname "${PENCIL_USER_APP}")"
+  cp -R "${mount_point}/Pencil.app" "${PENCIL_USER_APP}"
+
+  echo "Cleaning up..."
+  hdiutil detach "${mount_point}" 2>/dev/null
+  rm -f "${dmg_path}"
+
+  echo "Pencil installed at ${PENCIL_USER_APP}"
+  return 2  # Needs activation
 }
 
 usage() {
@@ -52,6 +112,7 @@ USAGE
 main() {
   case "${1:-}" in
     --check) check_installed; exit $? ;;
+    --install) install_pencil; exit $? ;;
     --help) usage; exit 0 ;;
     *) usage; exit 0 ;;
   esac

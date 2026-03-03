@@ -36,3 +36,33 @@ load test_helper
   [ "$status" -eq 1 ]
   [[ "$output" == *"not installed"* ]]
 }
+
+@test "--install detects arm64 architecture" {
+  mock_uname() { echo "arm64"; }
+  export -f mock_uname
+  PENCIL_UNAME_CMD="mock_uname" \
+  PENCIL_USER_APP="${TEST_TEMP}/Applications/Pencil.app" \
+  PENCIL_DOWNLOAD_DIR="${TEST_TEMP}/Downloads" \
+  PENCIL_DRY_RUN=1 \
+    run "${PENCIL_START}" --install
+  [[ "$output" == *"arm64"* ]]
+}
+
+@test "--install detects x86_64 architecture" {
+  mock_uname() { echo "x86_64"; }
+  export -f mock_uname
+  PENCIL_UNAME_CMD="mock_uname" \
+  PENCIL_USER_APP="${TEST_TEMP}/Applications/Pencil.app" \
+  PENCIL_DOWNLOAD_DIR="${TEST_TEMP}/Downloads" \
+  PENCIL_DRY_RUN=1 \
+    run "${PENCIL_START}" --install
+  [[ "$output" == *"x64"* ]]
+}
+
+@test "--install skips if already installed" {
+  mkdir -p "${TEST_TEMP}/Applications/Pencil.app"
+  PENCIL_USER_APP="${TEST_TEMP}/Applications/Pencil.app" \
+    run "${PENCIL_START}" --install
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"already installed"* ]]
+}
