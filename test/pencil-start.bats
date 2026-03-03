@@ -59,6 +59,18 @@ load test_helper
   [[ "$output" == *"x64"* ]]
 }
 
+@test "--install fails on unsupported architecture" {
+  mock_uname() { echo "riscv64"; }
+  export -f mock_uname
+  PENCIL_UNAME_CMD="mock_uname" \
+  PENCIL_USER_APP="${TEST_TEMP}/Applications/Pencil.app" \
+  PENCIL_DOWNLOAD_DIR="${TEST_TEMP}/Downloads" \
+  PENCIL_DRY_RUN=1 \
+    run "${PENCIL_START}" --install
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"Unsupported"* ]]
+}
+
 @test "--install skips if already installed" {
   mkdir -p "${TEST_TEMP}/Applications/Pencil.app"
   PENCIL_USER_APP="${TEST_TEMP}/Applications/Pencil.app" \

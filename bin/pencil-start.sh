@@ -38,6 +38,7 @@ check_installed() {
 
 detect_arch() {
   local arch
+  # PENCIL_UNAME_CMD is eval'd for test injection; in production only the default is used
   arch="$(eval "${PENCIL_UNAME_CMD}")"
   case "${arch}" in
     arm64) echo "arm64" ;;
@@ -47,6 +48,7 @@ detect_arch() {
 }
 
 is_running() {
+  # PENCIL_PGREP_CMD is eval'd for test injection; in production only the default is used
   eval "${PENCIL_PGREP_CMD}" > /dev/null 2>&1
 }
 
@@ -111,11 +113,18 @@ install_pencil() {
   }
 
   echo "Mounting DMG..."
-  local mount_point
-  mount_point="$(hdiutil attach "${dmg_path}" -nobrowse 2>/dev/null | grep '/Volumes/' | awk '{print $NF}')"
+  local hdi_output mount_point
+  hdi_output="$(hdiutil attach "${dmg_path}" -nobrowse 2>/dev/null)" || {
+    echo "Failed to mount DMG. Install manually from https://www.pencil.dev/downloads"
+    rm -f "${dmg_path}"
+    return 1
+  }
+  mount_point="$(echo "${hdi_output}" | grep -o '/Volumes/.*$' | head -1)"
 
   if [ -z "${mount_point}" ]; then
-    mount_point="$(hdiutil attach "${dmg_path}" -nobrowse 2>/dev/null | tail -1 | sed 's/.*\(\/Volumes\/.*\)/\1/')"
+    echo "Failed to determine mount point. Install manually from https://www.pencil.dev/downloads"
+    rm -f "${dmg_path}"
+    return 1
   fi
 
   echo "Copying Pencil.app to ~/Applications..."
@@ -123,7 +132,7 @@ install_pencil() {
   cp -R "${mount_point}/Pencil.app" "${PENCIL_USER_APP}"
 
   echo "Cleaning up..."
-  hdiutil detach "${mount_point}" 2>/dev/null
+  hdiutil detach "${mount_point}" 2>/dev/null || echo "Warning: could not unmount ${mount_point}"
   rm -f "${dmg_path}"
 
   echo "Pencil installed at ${PENCIL_USER_APP}"
@@ -131,10 +140,10 @@ install_pencil() {
 }
 
 report_status() {
-  local installed="no" running="no" port="no"
+  local installed="no" running="no" port="no" pencil_path
 
-  if find_pencil > /dev/null 2>&1; then
-    installed="yes ($(find_pencil))"
+  if pencil_path="$(find_pencil 2>/dev/null)"; then
+    installed="yes (${pencil_path})"
   fi
 
   if is_running; then
