@@ -66,3 +66,20 @@ load test_helper
   [ "$status" -eq 0 ]
   [[ "$output" == *"already installed"* ]]
 }
+
+@test "--start fails if Pencil not installed" {
+  PENCIL_USER_APP="${TEST_TEMP}/Applications/Pencil.app" \
+  PENCIL_SYS_APP="${TEST_TEMP}/SysApplications/Pencil.app" \
+  PENCIL_PGREP_CMD="false" \
+    run "${PENCIL_START}" --start
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"not installed"* ]]
+}
+
+@test "--start reports already running when process found" {
+  PENCIL_USER_APP="${TEST_TEMP}/Applications/Pencil.app" \
+  PENCIL_PGREP_CMD="echo 12345" \
+    run "${PENCIL_START}" --start
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"already running"* ]]
+}

@@ -10,6 +10,9 @@ PENCIL_DOWNLOAD_DIR="${PENCIL_DOWNLOAD_DIR:-$HOME/Downloads}"
 PENCIL_DRY_RUN="${PENCIL_DRY_RUN:-0}"
 PENCIL_UNAME_CMD="${PENCIL_UNAME_CMD:-uname -m}"
 PENCIL_DMG_BASE="https://5ykymftd1soethh5.public.blob.vercel-storage.com"
+PENCIL_PGREP_CMD="${PENCIL_PGREP_CMD:-pgrep -f Pencil.app}"
+PENCIL_PORT="${PENCIL_PORT:-59066}"
+PENCIL_TIMEOUT="${PENCIL_TIMEOUT:-15}"
 
 find_pencil() {
   if [ -d "${PENCIL_USER_APP}" ]; then
@@ -41,6 +44,44 @@ detect_arch() {
     x86_64) echo "x64" ;;
     *) echo "unknown"; return 1 ;;
   esac
+}
+
+is_running() {
+  eval "${PENCIL_PGREP_CMD}" > /dev/null 2>&1
+}
+
+wait_for_port() {
+  local timeout="${PENCIL_TIMEOUT}"
+  local elapsed=0
+  echo "Waiting for Pencil on port ${PENCIL_PORT}..."
+  while [ "${elapsed}" -lt "${timeout}" ]; do
+    if curl -sf "http://localhost:${PENCIL_PORT}" > /dev/null 2>&1; then
+      echo "Pencil is ready on port ${PENCIL_PORT}"
+      return 0
+    fi
+    sleep 1
+    elapsed=$((elapsed + 1))
+  done
+  echo "Timeout waiting for Pencil (${timeout}s)"
+  return 1
+}
+
+start_pencil() {
+  local pencil_path
+
+  if is_running; then
+    echo "Pencil is already running"
+    return 0
+  fi
+
+  pencil_path="$(find_pencil)" || {
+    echo "Pencil is not installed. Run with --install first."
+    return 1
+  }
+
+  echo "Launching Pencil..."
+  open "${pencil_path}"
+  wait_for_port
 }
 
 install_pencil() {
@@ -113,6 +154,7 @@ main() {
   case "${1:-}" in
     --check) check_installed; exit $? ;;
     --install) install_pencil; exit $? ;;
+    --start) start_pencil; exit $? ;;
     --help) usage; exit 0 ;;
     *) usage; exit 0 ;;
   esac
