@@ -130,6 +130,44 @@ install_pencil() {
   return 2  # Needs activation
 }
 
+report_status() {
+  local installed="no" running="no" port="no"
+
+  if find_pencil > /dev/null 2>&1; then
+    installed="yes ($(find_pencil))"
+  fi
+
+  if is_running; then
+    running="yes (PID: $(eval "${PENCIL_PGREP_CMD}" | head -1))"
+  fi
+
+  if curl -sf "http://localhost:${PENCIL_PORT}" > /dev/null 2>&1; then
+    port="yes (${PENCIL_PORT})"
+  fi
+
+  echo "Pencil Status:"
+  echo "  Installed: ${installed}"
+  echo "  Running: ${running}"
+  echo "  Port: ${port}"
+}
+
+full_sequence() {
+  # Step 1: Check/Install
+  if ! find_pencil > /dev/null 2>&1; then
+    local install_exit=0
+    install_pencil || install_exit=$?
+    if [ "${install_exit}" -eq 2 ]; then
+      echo "ACTIVATE: Open Pencil, activate with your email, then enable Claude Code in Settings → Agents and MCP"
+      exit 2
+    elif [ "${install_exit}" -ne 0 ]; then
+      exit 1
+    fi
+  fi
+
+  # Step 2: Start
+  start_pencil
+}
+
 usage() {
   cat <<'USAGE'
 Usage: pencil-start.sh [OPTIONS]
@@ -152,11 +190,13 @@ USAGE
 
 main() {
   case "${1:-}" in
+    --help) usage; exit 0 ;;
     --check) check_installed; exit $? ;;
     --install) install_pencil; exit $? ;;
     --start) start_pencil; exit $? ;;
-    --help) usage; exit 0 ;;
-    *) usage; exit 0 ;;
+    --status) report_status; exit 0 ;;
+    "") full_sequence ;;
+    *) echo "Unknown option: $1"; usage; exit 1 ;;
   esac
 }
 

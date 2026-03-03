@@ -83,3 +83,32 @@ load test_helper
   [ "$status" -eq 0 ]
   [[ "$output" == *"already running"* ]]
 }
+
+@test "--status reports not installed" {
+  PENCIL_USER_APP="${TEST_TEMP}/Applications/Pencil.app" \
+  PENCIL_SYS_APP="${TEST_TEMP}/SysApplications/Pencil.app" \
+  PENCIL_PGREP_CMD="false" \
+    run "${PENCIL_START}" --status
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Installed: no"* ]]
+  [[ "$output" == *"Running: no"* ]]
+}
+
+@test "--status reports installed but not running" {
+  mkdir -p "${TEST_TEMP}/Applications/Pencil.app"
+  PENCIL_USER_APP="${TEST_TEMP}/Applications/Pencil.app" \
+  PENCIL_PGREP_CMD="false" \
+    run "${PENCIL_START}" --status
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Installed: yes"* ]]
+  [[ "$output" == *"Running: no"* ]]
+}
+
+@test "no flag runs full sequence — skips install when already installed" {
+  mkdir -p "${TEST_TEMP}/Applications/Pencil.app"
+  PENCIL_USER_APP="${TEST_TEMP}/Applications/Pencil.app" \
+  PENCIL_PGREP_CMD="echo 12345" \
+    run "${PENCIL_START}"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"already running"* ]]
+}
