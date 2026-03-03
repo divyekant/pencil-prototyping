@@ -3,6 +3,32 @@
 
 set -euo pipefail
 
+# Configurable paths (overridable for testing)
+PENCIL_USER_APP="${PENCIL_USER_APP:-$HOME/Applications/Pencil.app}"
+PENCIL_SYS_APP="${PENCIL_SYS_APP:-/Applications/Pencil.app}"
+
+find_pencil() {
+  if [ -d "${PENCIL_USER_APP}" ]; then
+    echo "${PENCIL_USER_APP}"
+    return 0
+  elif [ -d "${PENCIL_SYS_APP}" ]; then
+    echo "${PENCIL_SYS_APP}"
+    return 0
+  fi
+  return 1
+}
+
+check_installed() {
+  local path
+  if path="$(find_pencil)"; then
+    echo "Pencil is installed at ${path}"
+    return 0
+  else
+    echo "Pencil is not installed"
+    return 1
+  fi
+}
+
 usage() {
   cat <<'USAGE'
 Usage: pencil-start.sh [OPTIONS]
@@ -25,6 +51,7 @@ USAGE
 
 main() {
   case "${1:-}" in
+    --check) check_installed; exit $? ;;
     --help) usage; exit 0 ;;
     *) usage; exit 0 ;;
   esac
